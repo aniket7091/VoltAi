@@ -294,22 +294,32 @@ export function validatePayload(payload) {
 export async function submitForecast(payload) {
     let response;
 
-    // 1. Try dev-server proxy first (works on localhost / LAN)
-    try {
-        const proxyRes = await fetch('/forecast/24h', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-        const ct = proxyRes.headers.get('content-type') || '';
-        if (proxyRes.ok && ct.includes('application/json')) {
-            response = proxyRes;
+    // 1. Try dev-server proxy first only in local development
+    const isLocal =
+        typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' ||
+         window.location.hostname === '127.0.0.1' ||
+         window.location.hostname.startsWith('192.168.') ||
+         window.location.hostname.startsWith('10.') ||
+         window.location.hostname.startsWith('172.'));
+
+    if (isLocal) {
+        try {
+            const proxyRes = await fetch('/forecast/24h', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const ct = proxyRes.headers.get('content-type') || '';
+            if (proxyRes.ok && ct.includes('application/json')) {
+                response = proxyRes;
+            }
+        } catch {
+            /* proxy unavailable — fall through */
         }
-    } catch {
-        /* proxy unavailable — fall through */
     }
 
-    // 2. Direct API call
+    // 2. Direct API call if in production or proxy is not available
     if (!response) {
         response = await fetch(`${VOLTAI_API_URL}/forecast/24h`, {
             method: 'POST',

@@ -407,25 +407,34 @@ function Analysis({ onRunStressTest }) {
             } else {
                 let response;
 
-                // 1. Try dev server proxy first (/predict/scenario)
-                // This bypasses CORS completely when accessing from phone/LAN (e.g. 172.20.10.2:3000)
-                try {
-                    const proxyRes = await fetch('/predict/scenario', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(requestPayload),
-                    });
-                    const ct = proxyRes.headers.get('content-type') || '';
-                    if (proxyRes.ok && ct.includes('application/json')) {
-                        response = proxyRes;
+                // 1. Try dev server proxy first (/predict/scenario) only in local development
+                const isLocal =
+                    typeof window !== 'undefined' &&
+                    (window.location.hostname === 'localhost' ||
+                     window.location.hostname === '127.0.0.1' ||
+                     window.location.hostname.startsWith('192.168.') ||
+                     window.location.hostname.startsWith('10.') ||
+                     window.location.hostname.startsWith('172.'));
+
+                if (isLocal) {
+                    try {
+                        const proxyRes = await fetch('/predict/scenario', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(requestPayload),
+                        });
+                        const ct = proxyRes.headers.get('content-type') || '';
+                        if (proxyRes.ok && ct.includes('application/json')) {
+                            response = proxyRes;
+                        }
+                    } catch {
+                        /* fallback to direct API */
                     }
-                } catch {
-                    /* fallback to direct API */
                 }
 
-                // 2. Direct API call if proxy is not available
+                // 2. Direct API call if in production or proxy is not available
                 if (!response) {
                     response = await fetch(DIRECT_API_URL, {
                         method: 'POST',
